@@ -51,7 +51,7 @@ static void MeasureArithmetic() {
 
     // Write phase
     for (size_t i = 0; i < N; i += 64)
-        *(volatile uint64_t*)(buf + i) = 0;
+        *(volatile uint64_t*)(buf + i) = 1;
 
     // Read phase
     uint64_t sum = 0;
