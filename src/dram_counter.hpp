@@ -1,15 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// dram_counter.hpp – DRAM read/write CAS-COUNT helper
+// dram_counter.hpp – DRAM read/write CAS-COUNT helper (binary units)
 //
 // Measures DRAM traffic via uncore_iMC PMU events on Intel CPUs.
-// Exposes:
+// Uses binary units (KiB, MiB, GiB) where 1 KiB = 1024 bytes
 //
+// Exposes:
 //   bool   init();        // probe PMU & open counters
 //   void   start();       // reset + enable
 //   void   stop();        // read + disable
-//   void   print_results();  // human-readable + dumps dram_counts.out
+//   void   print_results(bool save = false);  // human-readable + optionally save
 //
-// Writes dram_counts.out with
+// When save=true, writes dram_counts.out with:
 //   DRAM_READ_BYTES
 //   DRAM_WRITE_BYTES
 //   DRAM_TOTAL_BYTES
@@ -175,7 +176,7 @@ public:
         measuring = false;
     }
 
-    void print_results() {
+    void print_results(bool save = false) {
         auto to_bytes = [](double v, const std::string& unit) {
             if (unit.find("MiB") != std::string::npos) return v * 1048576;
             if (unit.find("KiB") != std::string::npos) return v * 1024;
@@ -186,11 +187,13 @@ public:
         for (const auto& c : reads)  rB += to_bytes(c.val * c.scale, c.unit);
         for (const auto& c : writes) wB += to_bytes(c.val * c.scale, c.unit);
 
+        // Binary units: 1 KiB = 1024, 1 MiB = 1048576, 1 GiB = 1073741824
         auto human = [](double B) {
             char buf[32];
-            if (B > (1ll << 30))      sprintf(buf, "%.2f GB", B / (1ll << 30));
-            else if (B > (1ll << 20)) sprintf(buf, "%.2f MB", B / (1ll << 20));
-            else                      sprintf(buf, "%.0f bytes", B);
+            if (B >= (1ULL << 30))      sprintf(buf, "%.2f GiB", B / (1ULL << 30));
+            else if (B >= (1ULL << 20)) sprintf(buf, "%.2f MiB", B / (1ULL << 20));
+            else if (B >= (1ULL << 10)) sprintf(buf, "%.2f KiB", B / (1ULL << 10));
+            else                         sprintf(buf, "%.0f bytes", B);
             return std::string(buf);
         };
 
@@ -199,11 +202,13 @@ public:
                   << "Write: " << human(wB) << '\n'
                   << "Total: " << human(rB + wB) << '\n';
 
-        std::system("mkdir -p logs");
-        std::ofstream out("logs/dram_counts.out");
-        out << "DRAM_READ_BYTES="  << static_cast<uint64_t>(rB)      << '\n'
-            << "DRAM_WRITE_BYTES=" << static_cast<uint64_t>(wB)      << '\n'
-            << "DRAM_TOTAL_BYTES=" << static_cast<uint64_t>(rB+wB)   << '\n';
+        if (save) {
+            std::system("mkdir -p logs");
+            std::ofstream out("logs/dram_counts.out");
+            out << "DRAM_READ_BYTES="  << static_cast<uint64_t>(rB)      << '\n'
+                << "DRAM_WRITE_BYTES=" << static_cast<uint64_t>(wB)      << '\n'
+                << "DRAM_TOTAL_BYTES=" << static_cast<uint64_t>(rB+wB)   << '\n';
+        }
     }
 
     ~DRAMCounter() {
