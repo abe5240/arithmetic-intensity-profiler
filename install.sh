@@ -74,4 +74,13 @@ g++ -std=c++17 -O0 -g -o build/validation src/validation.cpp
 echo -1 > /proc/sys/kernel/perf_event_paranoid
 echo "✓ Perf counters enabled"
 
+# Install profiling tools globally
+echo "Installing profiling tools to /opt/intel/pin..."
+mkdir -p /opt/intel/pin/profiling-tools
+cp build/pintool.so /opt/intel/pin/profiling-tools/
+cp src/dram_counter.hpp /opt/intel/pin/profiling-tools/
+chmod 755 /opt/intel/pin/profiling-tools
+chmod 644 /opt/intel/pin/profiling-tools/*
+echo "✓ Profiling tools installed to /opt/intel/pin/profiling-tools/"
+
 echo "✓ Done. Run ./run_validation.sh to test"
