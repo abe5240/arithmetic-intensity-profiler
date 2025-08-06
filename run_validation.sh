@@ -19,18 +19,20 @@ sudo "$PIN_ROOT/pin" -logfile "$LOG_DIR/pintool.log" \
 
 echo
 echo "Results:"
-echo "--------"
+echo "──────────────────────────"
 
 if [[ -f "$LOG_DIR/int_counts.out" ]]; then
     OPS=$(awk '/TOTAL/ {print $3}' "$LOG_DIR/int_counts.out")
-    echo "Integer ops: $OPS"
+    printf "Integer ops   : %d\n" $OPS
 fi
 
 if [[ -f "$LOG_DIR/dram_counts.out" ]]; then
     source "$LOG_DIR/dram_counts.out"
-    echo "DRAM total: $(echo "$DRAM_TOTAL_BYTES/1048576" | bc -l) MB"
+    DRAM_MB=$(printf "%.2f" $(echo "scale=2; $DRAM_TOTAL_BYTES/1048576" | bc))
+    printf "DRAM traffic  : %s MB\n" "$DRAM_MB"
     if [[ -n "${OPS:-}" && -n "${DRAM_TOTAL_BYTES:-}" && "$DRAM_TOTAL_BYTES" != "0" ]]; then
-        echo "Intensity: $(awk "BEGIN{printf \"%.6f\", $OPS/$DRAM_TOTAL_BYTES}") ops/byte"
+        OPS_PER_MB=$(printf "%.2f" $(echo "scale=2; $OPS/($DRAM_TOTAL_BYTES/1048576)" | bc))
+        printf "AI (ops/MB)   : %s\n" "$OPS_PER_MB"
     fi
 fi
 
