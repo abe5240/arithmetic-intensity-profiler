@@ -3,12 +3,20 @@ set -euo pipefail
 
 echo "=== Installing Pin System-Wide ==="
 
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: This script must be run as root (use sudo)"
+    echo "Run: sudo $0"
+    exit 1
+fi
+
 # Install Pin to /opt
-sudo mkdir -p /opt/intel/pin
-sudo tar -xzf src/pin-3.31-linux.tar.gz -C /opt/intel/pin --strip-components=1
+mkdir -p /opt/intel/pin
+tar -xzf src/pin-3.31-linux.tar.gz -C /opt/intel/pin --strip-components=1
+chmod -R 755 /opt/intel/pin
 
 # Set up environment
-sudo tee /etc/profile.d/intel-pin.sh > /dev/null << 'EOF'
+tee /etc/profile.d/intel-pin.sh > /dev/null << 'EOF'
 export PIN_ROOT="/opt/intel/pin"
 export PATH="$PIN_ROOT:$PATH"
 EOF
@@ -39,7 +47,6 @@ g++ -Wall -Werror -Wno-unknown-pragmas -DPIN_CRT=1 \
     -I${PIN_ROOT}/source/tools/Utils \
     -I${PIN_ROOT}/source/tools/InstLib \
     -O3 -fomit-frame-pointer -fno-strict-aliasing \
-    -Wno-dangling-pointer \
     -c -o build/pintool.o src/pintool.cpp
 
 g++ -shared -Wl,--hash-style=sysv \
@@ -64,6 +71,7 @@ echo "Building validation..."
 g++ -std=c++17 -O0 -g -o build/validation src/validation.cpp
 
 # Enable perf counters
-sudo sh -c 'echo -1 > /proc/sys/kernel/perf_event_paranoid'
+echo -1 > /proc/sys/kernel/perf_event_paranoid
+echo "✓ Perf counters enabled"
 
 echo "✓ Done. Run ./run_validation.sh to test"
