@@ -34,7 +34,6 @@ static void MeasureArithmetic() {
     constexpr size_t N = 1ULL << 30; // 1 GiB
     auto* buf = static_cast<uint8_t*>(std::aligned_alloc(64, N));
 
-    // Measure arithmetic kernel (but don't save to file)
     PIN_MARKER_START();
     g_dram.start();
     ArithmeticKernel();
@@ -42,24 +41,21 @@ static void MeasureArithmetic() {
     PIN_MARKER_END();
 
     std::puts("\n=== Arithmetic Kernel (Measured) ===");
-    std::puts("Expected: 4 000 integer ops, <2 MiB DRAM\n");
-    g_dram.print_results(false);  // Don't save
+    std::puts("Expected: 4 000 integer ops, <2 MB DRAM\n");
+    g_dram.print_results();
 
-    // Measure bandwidth test (save this one to file)
     std::puts("\n=== DRAM Bandwidth Test ===");
     g_dram.start();
 
-    // Write phase
     for (size_t i = 0; i < N; i += 64)
-        *(volatile uint64_t*)(buf + i) = 1;
+        *(volatile uint64_t*)(buf + i) = 0;
 
-    // Read phase
     uint64_t sum = 0;
     for (size_t i = 0; i < N; i += 64)
         sum += *(volatile uint64_t*)(buf + i);
 
     g_dram.stop();
-    g_dram.print_results(true);  // Save this measurement
+    g_dram.print_results();
 
     std::free(buf);
     std::printf("\nChecksum: %llu\n", (unsigned long long)sum);

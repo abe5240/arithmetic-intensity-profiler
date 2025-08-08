@@ -1,33 +1,44 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "=== Installing Pin System-Wide ==="
+echo "=== Installing Profiling Tools System-Wide ==="
 
-# Check if running as root
 if [ "$EUID" -ne 0 ]; then
-    echo "Error: This script must be run as root (use sudo)"
-    echo "Run: sudo $0"
+    echo "Error: Run with sudo"
     exit 1
 fi
 
-# Install Pin to /opt
+# Install PIN
+echo "Installing Intel PIN..."
+if [ ! -f "pin-3.31-linux.tar.gz" ]; then
+    echo "Error: pin-3.31-linux.tar.gz not found"
+    exit 1
+fi
+
 mkdir -p /opt/intel/pin
-tar -xzf src/pin-3.31-linux.tar.gz -C /opt/intel/pin --strip-components=1
+tar -xzf pin-3.31-linux.tar.gz -C /opt/intel/pin --strip-components=1
 chmod -R 755 /opt/intel/pin
 
-# Set up environment
+# Set up PIN environment
 tee /etc/profile.d/intel-pin.sh > /dev/null << 'EOF'
 export PIN_ROOT="/opt/intel/pin"
 export PATH="$PIN_ROOT:$PATH"
 EOF
 
-# Export for current session
 export PIN_ROOT="/opt/intel/pin"
+echo "✓ PIN installed"
 
-echo "✓ Pin installed to /opt/intel/pin"
+# Create profiling-tools structure
+echo "Setting up profiling tools..."
+mkdir -p /opt/profiling-tools/{bin,include,lib}
 
-# Build pintool
-echo "Building pintool..."
+# Copy dram_counter.hpp
+cp src/dram_counter.hpp /opt/profiling-tools/include/
+chmod 644 /opt/profiling-tools/include/dram_counter.hpp
+echo "✓ Installed dram_counter.hpp"
+
+# Build PIN tool
+echo "Building PIN tool..."
 mkdir -p build
 
 g++ -Wall -Werror -Wno-unknown-pragmas -DPIN_CRT=1 \
@@ -64,23 +75,37 @@ g++ -shared -Wl,--hash-style=sysv \
     -lpindwarf -ldwarf -ldl-dynamic -nostdlib \
     -lc++ -lc++abi -lm-dynamic -lc-dynamic -lunwind-dynamic
 
-echo "✓ Pintool built"
+cp build/pintool.so /opt/profiling-tools/lib/
+chmod 755 /opt/profiling-tools/lib/pintool.so
+echo "✓ PIN tool installed"
 
-# Build validation
-echo "Building validation..."
-g++ -std=c++17 -O0 -g -o build/validation src/validation.cpp
+# Set up environment
+tee /etc/profile.d/profiling-tools.sh > /dev/null << 'EOF'
+export PROFILING_TOOLS_ROOT="/opt/profiling-tools"
+export PINTOOL_PATH="/opt/profiling-tools/lib/pintool.so"
+export CPLUS_INCLUDE_PATH="/opt/profiling-tools/include:$CPLUS_INCLUDE_PATH"
+export PATH="/opt/profiling-tools/bin:$PATH"
+EOF
+
+# Create convenience wrapper
+tee /opt/profiling-tools/bin/run-with-pin > /dev/null << 'EOF'
+#!/bin/bash
+if [ $# -lt 1 ]; then
+    echo "Usage: run-with-pin <program> [args...]"
+    exit 1
+fi
+exec /opt/intel/pin/pin -t /opt/profiling-tools/lib/pintool.so -quiet -- "$@"
+EOF
+chmod 755 /opt/profiling-tools/bin/run-with-pin
 
 # Enable perf counters
 echo -1 > /proc/sys/kernel/perf_event_paranoid
-echo "✓ Perf counters enabled"
 
-# Install profiling tools globally
-echo "Installing profiling tools to /opt/intel/pin..."
-mkdir -p /opt/intel/pin/profiling-tools
-cp build/pintool.so /opt/intel/pin/profiling-tools/
-cp src/dram_counter.hpp /opt/intel/pin/profiling-tools/
-chmod 755 /opt/intel/pin/profiling-tools
-chmod 644 /opt/intel/pin/profiling-tools/*
-echo "✓ Profiling tools installed to /opt/intel/pin/profiling-tools/"
-
-echo "✓ Done. Run ./run_validation.sh to test"
+echo ""
+echo "✓ Installation Complete!"
+echo ""
+echo "Directory structure:"
+echo "  /opt/intel/pin/          - Intel PIN"
+echo "  /opt/profiling-tools/    - Your profiling tools"
+echo ""
+echo "Run: source /etc/profile.d/profiling-tools.sh"
