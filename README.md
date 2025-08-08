@@ -13,7 +13,7 @@ This toolkit provides:
 
 ```
 arithmetic-intensity-profiler/
-├── install.sh                   # System-wide installation script
+├── install_profiling_tools.sh   # System-wide installation script
 ├── pin-3.31-linux.tar.gz        # Intel PIN binary (download separately)
 └── src/
     ├── dram_counter.hpp         # DRAM traffic measurement header
@@ -30,18 +30,11 @@ arithmetic-intensity-profiler/
 
 ## Installation
 
-### 1. Download Intel PIN
-
-```bash
-# Download PIN 3.31 if not already present
-wget https://software.intel.com/sites/landingpage/pintool/downloads/pin-3.31-linux.tar.gz
-```
-
-### 2. Run Installation Script
+### 1. Run Installation Script
 
 ```bash
 # Install everything to /opt/
-sudo ./install.sh
+sudo ./install_profiling_tools.sh
 ```
 
 This installs:
@@ -50,7 +43,7 @@ This installs:
 - System headers to `/opt/profiling-tools/include/`
 - PIN tool library to `/opt/profiling-tools/lib/pintool.so`
 
-### 3. Load Environment Variables
+### 2. Load Environment Variables
 
 ```bash
 # Load for current session
